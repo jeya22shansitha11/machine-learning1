@@ -1,0 +1,79 @@
+# Import necessary libraries
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+
+# Load dataset
+data = pd.read_csv('housing_data.csv')  # Replace with your dataset path
+
+# Print column names to verify
+print("Columns in the dataset:", data.columns)
+
+# Define the features
+numeric_features = ['feature1', 'feature2', 'feature3']  # Replace with your features
+categorical_features = ['category1', 'category2']  # Replace with your categories
+
+# Verify columns exist in the dataset
+missing_numeric = [col for col in numeric_features if col not in data.columns]
+missing_categorical = [col for col in categorical_features if col not in data.columns]
+
+if missing_numeric:
+    print(f"Numeric features missing from dataset: {missing_numeric}")
+if missing_categorical:
+    print(f"Categorical features missing from dataset: {missing_categorical}")
+
+# Continue only if all columns are present
+if not missing_numeric and not missing_categorical:
+    numeric_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', MinMaxScaler())])
+
+    categorical_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('onehot', OneHotEncoder(handle_unknown='ignore'))])
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numeric_transformer, numeric_features),
+            ('cat', categorical_transformer, categorical_features)])
+
+    # Split data into training and testing sets
+    X = data.drop('target', axis=1)  # Replace 'target' with your target variable
+    y = data['target']  # Replace 'target' with your target variable
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Define the model
+    model = Pipeline(steps=[('preprocessor', preprocessor),
+                            ('regressor', RandomForestRegressor())])
+
+    # Train the model
+    model.fit(X_train, y_train)  # Corrected line
+
+    # Predict and evaluate
+    y_pred = model.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+
+    print(f'Mean Squared Error: {mse}')
+    print(f'R-squared: {r2}')
+
+    # Hyperparameter tuning example with GridSearchCV
+    param_grid = {
+        'regressor__n_estimators': [100, 200, 300],
+        'regressor__max_depth': [None, 10, 20, 30],
+        'regressor__min_samples_split': [2, 5, 10]
+    }
+
+    grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error')
+    grid_search.fit(X_train, y_train)
+
+    print(f'Best parameters: {grid_search.best_params_}')
+else:
+    print("Please correct the column names and try again.")
